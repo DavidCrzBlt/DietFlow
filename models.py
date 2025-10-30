@@ -30,6 +30,15 @@ class UnidadEnum(enum.Enum):
     sobre = "sobre"
     lata = "lata"
 
+class DiasEnum(enum.Enum):
+    lunes = "Lunes"
+    martes = "Martes"
+    miercoles = "Miércoles"
+    jueves = "Jueves"
+    viernes = "Viernes"
+    sabado = "Sábado"
+    domingo = "Domingo"
+
 class Receta(Base):
     __tablename__ = "recetas"
     id = Column(Integer, primary_key=True, index=True)
@@ -62,7 +71,7 @@ class RecetaIngrediente(Base):
 class PlanSemanal(Base):
     __tablename__ = "plan_semanal"
     id = Column(Integer, primary_key=True, index=True)
-    dia = Column(String, index=True) 
+    dia = Column(Enum(DiasEnum), index=True)
     momento_comida = Column(Enum(TipoComidaEnum))
     receta_id = Column(Integer, ForeignKey("recetas.id"))
 
