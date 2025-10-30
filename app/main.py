@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, Request, Form, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware 
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
@@ -7,10 +8,10 @@ from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 # Importaciones locales usando la nueva estructura
+from schemas import PlanComidaSchema, ShoppingListItemSchema
 from models import Base, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
 from database import engine, get_db
 from tasks_integration import update_or_create_shopping_list
-
 
 
 Base.metadata.create_all(bind=engine)
@@ -19,10 +20,23 @@ app = FastAPI(title="DietFlow")
 
 templates = Jinja2Templates(directory="templates")
 
+origins = [
+    "http://localhost:5173", # La dirección de nuestra app de React
+    "http://localhost",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Permite todos los métodos (GET, POST, etc)
+    allow_headers=["*"],
+)
+
 
 # --- Endpoints de la API ---
 
-@app.get("/")
+@app.get("/", response_model=List[PlanComidaSchema])
 def get_todays_plan_view(request: Request, db: Session = Depends(get_db)):
     """
     Obtiene el plan de comidas para el día actual y lo muestra en una vista HTML.
@@ -60,16 +74,10 @@ def get_todays_plan_view(request: Request, db: Session = Depends(get_db)):
     # 2. Ordenamos la lista 'plan_del_dia' usando el índice de nuestra lista 'meal_order' como clave.
     plan_del_dia.sort(key=lambda plan: meal_order.index(plan.momento_comida.name))
 
-    # 3. Renderizar la plantilla HTML con los datos
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "dia_actual": dia_actual_str,
-        "plan_del_dia": plan_del_dia,
-        "dias_enum": DiasEnum
-    })
+    return plan_del_dia
 
 
-@app.get("/lista-compras")
+@app.get("/lista-compras", response_model=List[ShoppingListItemSchema])
 def generate_shopping_list(request: Request, dia_inicio: date, dia_fin: date, db: Session = Depends(get_db)):
     """
     Genera una lista de compras consolidada para un RANGO DE FECHAS específico.
@@ -107,14 +115,12 @@ def generate_shopping_list(request: Request, dia_inicio: date, dia_fin: date, db
                 lista_compras[nombre]['cantidad'] += item.cantidad
                 lista_compras[nombre]['unidad'] = item.ingrediente.unidad.value
 
-    # 5. Renderizar la plantilla con la lista final
-    return templates.TemplateResponse("lista_compras.html", {
-        "request": request,
-        "lista_compras": dict(lista_compras),
-        "dia_inicio": dia_inicio,
-        "dia_fin": dia_fin
-    })
+        response_list = [
+        {"nombre": nombre, "cantidad": data['cantidad'], "unidad": data['unidad']}
+        for nombre, data in lista_compras.items()
+    ]
 
+    return response_list
 
 @app.post("/send-to-tasks")
 async def send_list_to_tasks(
@@ -141,3 +147,4 @@ async def send_list_to_tasks(
     
     # La respuesta es instantánea para el usuario.
     return RedirectResponse(url="/", status_code=303)
+
