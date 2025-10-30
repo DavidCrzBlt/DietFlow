@@ -77,3 +77,9 @@ class PlanSemanal(Base):
 
     # Relación
     receta = relationship("Receta")
+
+class Configuracion(Base):
+    __tablename__ = "configuracion"
+    id = Column(Integer, primary_key=True, index=True)
+    clave = Column(String, unique=True, index=True) 
+    valor = Column(String) 

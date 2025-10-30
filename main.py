@@ -1,14 +1,13 @@
 import locale
 from datetime import datetime, timedelta, date
 from collections import defaultdict
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, Form, BackgroundTasks
 from fastapi.responses import RedirectResponse
-from fastapi import Form
 from typing import List
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from models import Base, engine, SessionLocal, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from tasks_integration import create_shopping_list_task
+from tasks_integration import update_or_create_shopping_list 
 
 # Establecer el locale en español para obtener el nombre del día correctamente
 try:
@@ -121,27 +120,29 @@ def generate_shopping_list(request: Request, dia_inicio: date, dia_fin: date, db
         "dia_fin": dia_fin
     })
 
+
 @app.post("/send-to-tasks")
-async def send_list_to_tasks(ingredientes: List[str] = Form(...)):
+async def send_list_to_tasks(
+    ingredientes: List[str] = Form(...),
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = Depends
+):
     """
-    Recibe la lista de ingredientes directamente desde el formulario
-    y crea la nota en Google Tasks.
+    Recibe la lista, responde INMEDIATAMENTE y delega la actualización
+    de Google Tasks a una tarea en segundo plano.
     """
     shopping_list = {}
     for item_str in ingredientes:
-        # Usamos try-except por si algún dato viene malformado
         try:
             nombre, cantidad, unidad = item_str.split('|')
-            shopping_list[nombre] = {
-                "cantidad": float(cantidad),
-                "unidad": unidad
-            }
+            shopping_list[nombre] = {"cantidad": float(cantidad), "unidad": unidad}
         except ValueError:
-            # Ignora este ingrediente si no tiene el formato correcto
             continue
     
-    # El resto de la función no cambia
-    if shopping_list: # Solo crea la nota si tenemos ingredientes
-        resultado = create_shopping_list_task(shopping_list)
+    if shopping_list:
+        # 3. DELEGA LA TAREA EN LUGAR DE EJECUTARLA
+        # No esperamos a que termine, solo la ponemos en la cola.
+        background_tasks.add_task(update_or_create_shopping_list, db, shopping_list)
     
+    # La respuesta es instantánea para el usuario.
     return RedirectResponse(url="/", status_code=303)

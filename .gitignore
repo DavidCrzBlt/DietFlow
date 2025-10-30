@@ -3,3 +3,4 @@
 .env
 seed.py
 credentials.json
+token.json
