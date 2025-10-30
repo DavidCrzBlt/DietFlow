@@ -1,18 +1,47 @@
 <!doctype html>
 <html lang="es">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DietFlow - Plan de Hoy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; }
-        .card-header { font-weight: bold; }
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .card-header {
+            font-weight: bold;
+        }
     </style>
 </head>
+
 <body>
     <div class="container mt-5">
         <h1 class="text-center mb-4">Plan de Hoy: <span class="text-capitalize">{{ dia_actual }}</span></h1>
+
+        <div class="card mb-5">
+            <div class="card-header">
+                <strong>Generar Lista de Compras</strong>
+            </div>
+            <div class="card-body">
+                <form action="/lista-compras" method="GET" class="row g-3 align-items-center">
+                    <div class="col-md-5">
+                        <label for="dia_inicio" class="form-label">Fecha de Inicio:</label>
+                        <input type="date" name="dia_inicio" id="dia_inicio" class="form-control" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="dia_fin" class="form-label">Fecha de Fin:</label>
+                        <input type="date" name="dia_fin" id="dia_fin" class="form-control" required>
+                    </div>
+                    <div class="col-md-2 d-grid align-self-end">
+                        <button type="submit" class="btn btn-primary">Generar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
 
         <div class="row">
             {% for plan in plan_del_dia %}
@@ -45,4 +74,5 @@
         </div>
     </div>
 </body>
+
 </html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DietFlow - Lista de Compras</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">
+            Lista de Compras <br>
+            <small class="text-muted text-capitalize">Para: {{ dia_inicio }} a {{ dia_fin }}</small>
+        </h1>
+
+        <div class="card">
+            <form action="/send-to-tasks" method="POST">
+                <ul class="list-group list-group-flush">
+                    {% for nombre, data in lista_compras.items() %}
+                    <input type="hidden" name="ingredientes" value="{{ nombre }}|{{ data.cantidad }}|{{ data.unidad }}">
+                    <li class="list-group-item d-flex justify-content-between align-items-center fs-5">
+                        {{ nombre }}
+                        <span class="badge bg-primary rounded-pill">
+                            {{ data.cantidad | round(1) }} {{ data.unidad }}
+                        </span>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item">No hay ingredientes para los días seleccionados.</li>
+                    {% endfor %}
+                </ul>
+                <button type="submit" class="btn btn-info btn-lg">
+                    Enviar a Google Tasks
+                </button>
+            </form>
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-secondary">Volver</a>
+        </div>
+    </div>
+</body>
+
+</html>
