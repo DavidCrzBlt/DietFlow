@@ -1,19 +1,10 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Enum
-from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-import os
-from dotenv import load_dotenv
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum
+from sqlalchemy.orm import relationship
+from database import Base
 import enum
 
 
-load_dotenv()
-
-SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL")
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
+# Clases
 
 class TipoComidaEnum(enum.Enum):
     desayuno = "Desayuno"

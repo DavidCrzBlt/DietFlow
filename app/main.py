@@ -1,35 +1,24 @@
-import locale
-from datetime import datetime, timedelta, date
-from collections import defaultdict
 from fastapi import FastAPI, Depends, Request, Form, BackgroundTasks
-from fastapi.responses import RedirectResponse
-from typing import List
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
-from models import Base, engine, SessionLocal, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from tasks_integration import update_or_create_shopping_list 
+from typing import List
+from datetime import datetime, date, timedelta
+from collections import defaultdict
 
-# Establecer el locale en español para obtener el nombre del día correctamente
-try:
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except locale.Error:
-    locale.setlocale(locale.LC_TIME, 'Spanish')
+# Importaciones locales usando la nueva estructura
+from models import Base, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
+from database import engine, get_db
+from tasks_integration import update_or_create_shopping_list
 
 
-# --- Configuración de la App y Base de Datos ---
+
 Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="DietFlow")
 
-# Configura el motor de plantillas Jinja2
 templates = Jinja2Templates(directory="templates")
 
-# --- Dependencia para la Sesión de Base de Datos ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # --- Endpoints de la API ---
 
@@ -64,6 +53,12 @@ def get_todays_plan_view(request: Request, db: Session = Depends(get_db)):
             .joinedload(Receta.ingredientes)
             .joinedload(RecetaIngrediente.ingrediente)
         ).all()
+
+    # 1. Definimos el orden correcto de las comidas.
+    meal_order = ["desayuno", "refrigerio", "comida", "cena"]
+    
+    # 2. Ordenamos la lista 'plan_del_dia' usando el índice de nuestra lista 'meal_order' como clave.
+    plan_del_dia.sort(key=lambda plan: meal_order.index(plan.momento_comida.name))
 
     # 3. Renderizar la plantilla HTML con los datos
     return templates.TemplateResponse("index.html", {

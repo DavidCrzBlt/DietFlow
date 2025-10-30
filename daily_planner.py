@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, time as dt_time, date
 import pytz
 from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlalchemy.orm import Session, joinedload
-from models import SessionLocal, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from tasks_integration import get_tasks_service
+from app.models import SessionLocal, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
+from app.tasks_integration import get_tasks_service
 
 TIMEZONE = "America/Mexico_City"
 
@@ -28,7 +28,7 @@ def plan_tomorrow_meals():
 
     # ===== SOLUCIÓN PARA LA FECHA CORRECTA =====
     # Usamos un método más simple y robusto para evitar errores de zona horaria
-    tomorrow_date = date.today() + timedelta(days=1)
+    tomorrow_date = date.today() # + timedelta(days=1)
     
     weekday_num = tomorrow_date.weekday()
     dias_map = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
