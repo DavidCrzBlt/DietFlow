@@ -1,6 +1,17 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from zoneinfo import ZoneInfo
 from pydantic import computed_field
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parent
+
+SECRETS_DIR = BASE_DIR / "secrets"
+CREDENTIALS_FILE = SECRETS_DIR / "credentials.json"
+TOKEN_FILE = SECRETS_DIR / "token.json"
+
+# --- Google Configuration ---
+GOOGLE_SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 class Settings(BaseSettings):
     """
