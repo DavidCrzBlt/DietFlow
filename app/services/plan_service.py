@@ -1,52 +1,78 @@
 from sqlalchemy.orm import Session, joinedload
-from datetime import datetime
-from models.plan import PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from config import settings
+from models.plan import PlanSemanal, DiasEnum, Receta, RecetaIngrediente, TipoComidaEnum
 from collections import defaultdict 
+from typing import List, Dict
 
 
-def get_daily_plan_logic(db: Session):
-    weekday_num = datetime.now(settings.TZ).weekday()
-    dias_map = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
-    dia_actual_str = dias_map[weekday_num]
+MEAL_ORDER_LIST = [
+    TipoComidaEnum.desayuno, 
+    TipoComidaEnum.refrigerio, 
+    TipoComidaEnum.comida, 
+    TipoComidaEnum.cena
+]
+
+
+def _get_base_plan_query(db: Session):
+    """
+    Helper privado que crea la consulta base con todos los 'joinedloads'.
+    No se repite más.
+    """
+    return db.query(PlanSemanal).options(
+        joinedload(PlanSemanal.receta)
+        .joinedload(Receta.ingredientes)
+        .joinedload(RecetaIngrediente.ingrediente)
+    )
+
+def _sort_plan_by_mealtime(plan_list: List[PlanSemanal]) -> List[PlanSemanal]:
+    """
+    Helper privado que ordena una lista de planes por el momento de comida.
+    """
+    # Usamos .get() para evitar errores si un nombre no está en la lista
+    meal_order_dict = {name: i for i, name in enumerate(MEAL_ORDER_LIST)}
     
-    try:
-        dia_actual_enum = DiasEnum[dia_actual_str]
-    except KeyError:
-        return f"Día {dia_actual_str} no encontrado"
+    plan_list.sort(key=lambda p: meal_order_dict.get(p.momento_comida.name, 99))
+    return plan_list
 
+# --- 2. Lógica de Servicio Pública (APIs del servicio) ---
 
-    plan_del_dia = db.query(PlanSemanal).filter(
-        PlanSemanal.dia == dia_actual_enum
-    ).options(
-        joinedload(PlanSemanal.receta)
-        .joinedload(Receta.ingredientes)
-        .joinedload(RecetaIngrediente.ingrediente)
-    ).all()
-
-    meal_order = ["desayuno", "refrigerio", "comida", "cena"]
-    plan_del_dia.sort(key=lambda p: meal_order.index(p.momento_comida.name))
-
-    return plan_del_dia
-
-
-
-def get_weekly_plan_logic(db: Session):
+def get_plan_for_day(db: Session, dia: DiasEnum) -> List[PlanSemanal]:
     """
-    Obtiene todo el plan semanal y lo agrupa por día.
+    Obtiene el plan completo para un DÍA ESPECÍFICO.
+    Ya no calcula 'hoy', solo obedece.
     """
-    plan_semanal_completo = db.query(PlanSemanal).options(
-        joinedload(PlanSemanal.receta)
-        .joinedload(Receta.ingredientes)
-        .joinedload(RecetaIngrediente.ingrediente)
+    plan_del_dia = _get_base_plan_query(db).filter(
+        PlanSemanal.dia == dia
     ).all()
+    
+    return _sort_plan_by_mealtime(plan_del_dia)
+
+
+def get_plan_for_week_grouped(db: Session) -> Dict[str, List[PlanSemanal]]:
+    """
+    Obtiene todo el plan semanal y lo agrupa por día, ya ordenado.
+    """
+    plan_semanal_completo = _get_base_plan_query(db).all()
 
     plan_agrupado = defaultdict(list)
     for plan in plan_semanal_completo:
         plan_agrupado[plan.dia.name].append(plan) 
 
-    meal_order = ["desayuno", "refrigerio", "comida", "cena"]
-    for dia in plan_agrupado:
-        plan_agrupado[dia].sort(key=lambda p: meal_order.index(p.momento_comida.name))
+    # Ordenamos la lista de cada día
+    for dia_str, plan_list in plan_agrupado.items():
+        plan_agrupado[dia_str] = _sort_plan_by_mealtime(plan_list)
         
     return plan_agrupado
+
+
+def get_plan_for_days_list(db: Session, dias: List[DiasEnum]) -> List[PlanSemanal]:
+    """
+    Obtiene un listado PLANO de todos los planes para una lista de enums de días.
+    Esta es la consulta única que necesitamos para la lista de compras.
+    """
+    if not dias:
+        return []
+        
+    # Reutilizamos el helper que ya habíamos creado
+    return _get_base_plan_query(db).filter(
+        PlanSemanal.dia.in_(dias)
+    ).all()

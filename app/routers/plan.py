@@ -1,23 +1,33 @@
-# app/routers/plan.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import List, Dict
-from database import get_db
-from schemas import plan as plan_schema
 from services import plan_service
+from utils import date_helpers
+from config import settings
+from datetime import datetime
+from typing import List, Dict
+from schemas import plan as plan_schema
+from database import get_db 
 
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/plan",
+    tags=["Plan de Comidas"]
+)
 
-@router.get("/", response_model=List[plan_schema.PlanComidaSchema])
-def get_todays_plan_data(db: Session = Depends(get_db)):
-
-    return plan_service.get_daily_plan_logic(db)
-
-
-@router.get("/plan/semana", response_model=Dict[str, List[plan_schema.PlanComidaSchema]])
-def get_weekly_plan_data(db: Session = Depends(get_db)):
+@router.get("/hoy", response_model=List[plan_schema.PlanComidaSchema])
+def get_todays_plan(db: Session = Depends(get_db)):
     """
-    Devuelve el plan de comidas de toda la semana, agrupado por día.
+    Obtiene el plan de comidas (desayuno, comida, etc.) para el día actual.
     """
-    return plan_service.get_weekly_plan_logic(db)
+    today_info = date_helpers.get_day_info(datetime.now(settings.TZ).date())
+    
+    return plan_service.get_plan_for_day(db, dia=today_info.dia_enum)
+
+
+@router.get("/semanal", response_model=Dict[str, List[plan_schema.PlanComidaSchema]])
+def get_weekly_plan(db: Session = Depends(get_db)):
+    """
+    Devuelve el plan de comidas de toda la semana, agrupado por día (str).
+    """
+
+    return plan_service.get_plan_for_week_grouped(db)

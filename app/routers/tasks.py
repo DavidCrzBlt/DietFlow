@@ -1,37 +1,28 @@
-from fastapi import APIRouter, Depends, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List
+from google_client.client import GoogleTasksClient
+from services import task_export_service
+from dependencies import get_google_client 
 from database import get_db
-from services.google_task_service import process_and_send_tasks, send_weekly_plan_to_tasks
 
+router = APIRouter(prefix="/export-tasks", tags=["Google Tasks"])
 
-router = APIRouter()
-
-@router.post("/send-to-tasks")
-async def send_to_tasks_endpoint(
+@router.post("/daily-plan")
+def export_daily_plan(
     background_tasks: BackgroundTasks,
-    ingredientes: List[str] = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    client: GoogleTasksClient = Depends(get_google_client)
 ):
-    """
-    Este endpoint recibe la petición y la delega inmediatamente al servicio
-    para que procese la lista y la envíe a Google Tasks.
-    """
-    return process_and_send_tasks(
-        ingredientes=ingredientes, 
-        db=db, 
-        background_tasks=background_tasks
-    )
+    """Exporta el plan de comidas de HOY a Google Tasks."""
+    background_tasks.add_task(task_export_service.export_daily_plan, db, client)
+    return {"message": "La exportación del plan diario ha comenzado."}
 
-
-@router.post("/plan-to-tasks")
-def send_plan_to_tasks(
+@router.post("/weekly-plan")
+def export_weekly_plan(
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    client: GoogleTasksClient = Depends(get_google_client)
 ):
-    """
-    Envía el plan de comidas de TODA LA SEMANA a Google Tasks.
-    """
-
-    background_tasks.add_task(send_weekly_plan_to_tasks, db)
-    return {"message": "El plan semanal se está enviando a Google Tasks."}
+    """Exporta el plan de comidas de TODA la semana a Google Tasks."""
+    background_tasks.add_task(task_export_service.export_weekly_plan, db, client)
+    return {"message": "La exportación del plan semanal ha comenzado."}
