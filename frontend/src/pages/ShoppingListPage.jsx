@@ -1,10 +1,69 @@
 // frontend/src/pages/ShoppingListPage.jsx
-import { useLocation, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
+import ShoppingList from '../components/ShoppingList';
 import { ROUTES } from '../constants/routes';
+import { API } from '../api/endpoints';
 
 function ShoppingListPage() {
     const location = useLocation();
+    const navigate = useNavigate();
     const { items = [], startDate = '', endDate = '' } = location.state || {};
+
+    // Estado para los checkboxes. Inicializamos todos como marcados.
+    const [checkedItems, setCheckedItems] = useState({});
+    const [isSending, setIsSending] = useState(false);
+
+    useEffect(() => {
+        // Cuando los items se cargan, creamos un objeto donde cada item está 'true' (marcado)
+        const initialCheckedState = items.reduce((acc, item) => {
+            acc[item.nombre] = true;
+            return acc;
+        }, {});
+        setCheckedItems(initialCheckedState);
+    }, [items]); // Este efecto se ejecuta si 'items' cambia
+
+    const handleItemToggle = (itemName) => {
+        setCheckedItems(prev => ({
+            ...prev,
+            [itemName]: !prev[itemName]
+        }));
+    };
+
+    const handleSendToTasks = async () => {
+        setIsSending(true);
+
+        // 1. Filtramos los items que están marcados
+        const selectedItems = items.filter(item => checkedItems[item.nombre]);
+
+        // 2. Creamos un objeto FormData para enviar los datos como un formulario
+        const formData = new FormData();
+        selectedItems.forEach(item => {
+            const itemString = `${item.nombre}|${item.cantidad}|${item.unidad}`;
+            formData.append('ingredientes', itemString);
+        });
+
+        try {
+            // El endpoint del backend espera un POST con datos de formulario
+            const response = await fetch(API.sendToTasksUrl(), {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.ok) {
+                alert('¡Lista enviada a Google Tasks con éxito!');
+                navigate(ROUTES.HOME); // Redirigimos al inicio
+            } else {
+                throw new Error('Falló el envío de la lista.');
+            }
+        } catch (error) {
+            console.error("Error al enviar a Google Tasks:", error);
+            alert('Hubo un problema al enviar la lista. Inténtalo de nuevo.');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     return (
         <div className="container mt-5">
             <div className="row justify-content-center">
@@ -17,27 +76,20 @@ function ShoppingListPage() {
                             </p>
                         </div>
                     </div>
-                    <div className="card">
-                        <div className="card-header">
-                            <strong>Lista de Compras Generada</strong>
-                        </div>
-                        <ul className="list-group list-group-flush">
-                            {items.length > 0 ? (
-                                items.map((item) => (
-                                    <li key={item.nombre} className="list-group-item d-flex justify-content-between align-items-center">
-                                        {item.nombre}
-                                        <span className="badge bg-primary rounded-pill">
-                                            {item.cantidad} {item.unidad}
-                                        </span>
-                                    </li>
-                                ))
-                            ) : (
-                                <li className="list-group-item">No se encontraron ingredientes.</li>
-                            )}
-                        </ul>
-                    </div>
-                    <div className="text-center mt-4">
-                        <Link to={ROUTES.HOME} className="btn btn-secondary">Volver</Link>
+                    <ShoppingList
+                        items={items}
+                        checkedItems={checkedItems}
+                        onItemToggle={handleItemToggle}
+                    />
+                    <div className="d-grid gap-2 mt-4">
+                        <button
+                            className="btn btn-info btn-lg text-white"
+                            onClick={handleSendToTasks}
+                            disabled={isSending || items.length === 0}
+                        >
+                            {isSending ? 'Enviando...' : 'Enviar a Google Tasks'}
+                        </button>
+                        <Link to={ROUTES.HOME} className="btn btn-secondary">Cancelar</Link>
                     </div>
                 </div>
             </div>

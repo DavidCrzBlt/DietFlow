@@ -11,6 +11,14 @@ export const API = {
     return `${API_BASE_URL}/lista-compras?dia_inicio=${startDate}&dia_fin=${endDate}`;
   },
 
-  // Si tuviéramos más endpoints, los añadiríamos aquí como nuevas funciones
-  // sendToTasksUrl: () => `${API_BASE_URL}/api/send-to-tasks`,
+  // Función para enviar la lista de compra a Google Tasks
+  sendToTasksUrl: () => `${API_BASE_URL}/send-to-tasks`,
+
+  // Función para enviar el plan a Google Tasks
+  sendPlanToTasks: () => `${API_BASE_URL}/plan-to-tasks`,
+  
+  // Función para hacer el plan de toda la semana
+  getWeeklyPlanUrl: () => `${API_BASE_URL}/plan/semana`,
+
 };
+

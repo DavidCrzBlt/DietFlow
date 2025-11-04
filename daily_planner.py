@@ -4,7 +4,7 @@ import pytz
 from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlalchemy.orm import Session, joinedload
 from app.models import SessionLocal, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from app.tasks_integration import get_tasks_service
+from app.routers.tasks_integration import get_tasks_service
 
 TIMEZONE = "America/Mexico_City"
 

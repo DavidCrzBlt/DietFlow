@@ -1,150 +1,30 @@
-from fastapi import FastAPI, Depends, Request, Form, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware 
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session, joinedload
-from typing import List
-from datetime import datetime, date, timedelta
-from collections import defaultdict
+# app/main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routers import plan, shopping_list, tasks
 
-# Importaciones locales usando la nueva estructura
-from schemas import PlanComidaSchema, ShoppingListItemSchema
-from models import Base, PlanSemanal, DiasEnum, Receta, RecetaIngrediente
-from database import engine, get_db
-from tasks_integration import update_or_create_shopping_list
-
-
-Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine) # Esto puede ir aquí o en database.py
 
 app = FastAPI(title="DietFlow")
 
-templates = Jinja2Templates(directory="templates")
-
-origins = [
-    "http://localhost:5173", # La dirección de nuestra app de React
-    "http://localhost",
-]
-
+# Configuración de CORS
+origins = ["http://localhost:5173", "http://localhost"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Permite todos los métodos (GET, POST, etc)
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Incluimos los routers de nuestras "habitaciones"
+app.include_router(plan.router)
+app.include_router(shopping_list.router)
+app.include_router(tasks.router)
 
-# --- Endpoints de la API ---
-
-@app.get("/", response_model=List[PlanComidaSchema])
-def get_todays_plan_view(request: Request, db: Session = Depends(get_db)):
-    """
-    Obtiene el plan de comidas para el día actual y lo muestra en una vista HTML.
-    """
-
-    weekday_num = datetime.now().weekday()
-
-    # 2. Mapear el número al string de nuestro Enum (la clave, no el valor)
-    
-    dias_map = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
-    dia_actual_str = dias_map[weekday_num]
-
-    try:
-        # Convertir el string del día al miembro del Enum correspondiente
-        dia_actual_enum = DiasEnum[dia_actual_str]
-    except KeyError:
-        # Si el día no existe en el Enum (no debería pasar), devolver un error o página vacía
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "dia_actual": "Día no encontrado",
-            "plan_del_dia": []
-        })
-
-    # 2. Consultar la base de datos para el plan de hoy
-    plan_del_dia = db.query(PlanSemanal).filter(PlanSemanal.dia == dia_actual_enum)\
-        .options(
-            joinedload(PlanSemanal.receta)
-            .joinedload(Receta.ingredientes)
-            .joinedload(RecetaIngrediente.ingrediente)
-        ).all()
-
-    # 1. Definimos el orden correcto de las comidas.
-    meal_order = ["desayuno", "refrigerio", "comida", "cena"]
-    
-    # 2. Ordenamos la lista 'plan_del_dia' usando el índice de nuestra lista 'meal_order' como clave.
-    plan_del_dia.sort(key=lambda plan: meal_order.index(plan.momento_comida.name))
-
-    return plan_del_dia
+@app.get("/")
+def read_root():
+    return {"message": "Bienvenido a DietFlow API"}
 
 
-@app.get("/lista-compras", response_model=List[ShoppingListItemSchema])
-def generate_shopping_list(request: Request, dia_inicio: date, dia_fin: date, db: Session = Depends(get_db)):
-    """
-    Genera una lista de compras consolidada para un RANGO DE FECHAS específico.
-    FastAPI convierte automáticamente los strings "YYYY-MM-DD" del formulario a objetos 'date'.
-    """
-    if dia_inicio > dia_fin:
-        return {"error": "La fecha de inicio no puede ser posterior a la fecha de fin."}
-
-    # El "truquito" para sumar ingredientes
-    lista_compras = defaultdict(lambda: {'cantidad': 0, 'unidad': ''})
-    dias_map = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
-    
-    # 1. Bucle a través de cada día en el rango de fechas seleccionado
-    delta = dia_fin - dia_inicio
-    for i in range(delta.days + 1):
-        current_date = dia_inicio + timedelta(days=i)
-        
-        # 2. Averiguar qué día de la semana es (Lunes=0, etc.)
-        weekday_num = current_date.weekday()
-        dia_str = dias_map[weekday_num]
-        dia_enum = DiasEnum[dia_str]
-        
-        # 3. Buscar las comidas para ESE día de la semana
-        planes_del_dia = db.query(PlanSemanal).filter(PlanSemanal.dia == dia_enum)\
-            .options(
-                joinedload(PlanSemanal.receta)
-                .joinedload(Receta.ingredientes)
-                .joinedload(RecetaIngrediente.ingrediente)
-            ).all()
-        
-        # 4. Sumar los ingredientes de ese día a nuestra lista total
-        for plan in planes_del_dia:
-            for item in plan.receta.ingredientes:
-                nombre = item.ingrediente.nombre
-                lista_compras[nombre]['cantidad'] += item.cantidad
-                lista_compras[nombre]['unidad'] = item.ingrediente.unidad.value
-
-        response_list = [
-        {"nombre": nombre, "cantidad": data['cantidad'], "unidad": data['unidad']}
-        for nombre, data in lista_compras.items()
-    ]
-
-    return response_list
-
-@app.post("/send-to-tasks")
-async def send_list_to_tasks(
-    ingredientes: List[str] = Form(...),
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = Depends
-):
-    """
-    Recibe la lista, responde INMEDIATAMENTE y delega la actualización
-    de Google Tasks a una tarea en segundo plano.
-    """
-    shopping_list = {}
-    for item_str in ingredientes:
-        try:
-            nombre, cantidad, unidad = item_str.split('|')
-            shopping_list[nombre] = {"cantidad": float(cantidad), "unidad": unidad}
-        except ValueError:
-            continue
-    
-    if shopping_list:
-        # 3. DELEGA LA TAREA EN LUGAR DE EJECUTARLA
-        # No esperamos a que termine, solo la ponemos en la cola.
-        background_tasks.add_task(update_or_create_shopping_list, db, shopping_list)
-    
-    # La respuesta es instantánea para el usuario.
-    return RedirectResponse(url="/", status_code=303)
 
