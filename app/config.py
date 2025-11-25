@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     # Le decimos a Pydantic que lea nuestro archivo .env
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    DATABASE_URL: str
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_PORT: int
+    DB_NAME: str
     
     TIMEZONE: str = "America/Mexico_City"
 
@@ -28,5 +32,10 @@ class Settings(BaseSettings):
     @property
     def TZ(self) -> ZoneInfo:
         return ZoneInfo(self.TIMEZONE)
+
+    @computed_field
+    @property
+    def DATABASE_URL(self) -> str:
+        return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 settings = Settings()

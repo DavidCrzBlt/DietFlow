@@ -1,7 +1,13 @@
-*venv/*
-*__pycache__*
+# Archivos de entorno para variables secretas
 .env
 seed.py
 credentials.json
 token.json
 *secrets/*
+
+# Entornos virtuales y caché de Python
+*venv/*
+*__pycache__*
+
+# Archivos de logs
+*.log
