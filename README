@@ -1,0 +1,24 @@
+# DietFlow
+
+## Descripción de la aplicación
+La app es una plataforma donde un nutriólogo crea y gestiona planes alimenticios totalmente digitales (recetas, ingredientes, porciones y horarios), y sus usuarios reciben automáticamente recordatorios diarios de sus comidas, pueden consultar su dieta sin PDFs, generar listas de compras inteligentes y llevar un seguimiento de su progreso.
+El backend corre en FastAPI con una base de datos en Postgres, la autenticación vive en Firebase, y el frontend en React ofrece una experiencia tipo app móvil sin necesidad de instalar nada.
+
+## Stack
+- FastAPI
+- React
+- Firebase Auth
+- PostgreSQL
+- Docker
+
+## Arquitectura
+Los diagramas y documentación detallada están en `/docs/architecture`.
+
+## Testing
+Ver `/docs/backend/testing_strategy.md`
+
+## Cómo correr local
+docker compose up ...
+
+## Authors
+David Cruz Beltrán
