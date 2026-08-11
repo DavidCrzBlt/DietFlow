@@ -6,8 +6,9 @@ token.json
 *secrets/*
 
 # Entornos virtuales y caché de Python
-*venv/*
+*.venv/*
 *__pycache__*
 
 # Archivos de logs
 *.log
+.codex/
